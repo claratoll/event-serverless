@@ -1,0 +1,56 @@
+service: event-serverless
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  profile: clara
+  region: eu-north-1
+  iam:
+    role: arn:aws:iam::612486395832:role/lectures-cloud
+
+plugins:
+  - serverless-webpack
+
+package:
+  individually: true
+
+functions:
+  getEvents:
+    handler: functions/getEvents/index.handler
+    events:
+      - httpApi:
+          path: '/getEvents'
+          method: GET
+  postevent:
+    handler: functions/postEvent/index.handler
+    events:
+      - httpApi:
+          path: '/postEvent'
+          method: POST
+  buyTicket:
+    handler: functions/buyTicket/index.handler
+    events:
+      - httpApi:
+          path: '/buy'
+          method: POST
+  verifyTicket:
+    handler: functions/verifyTicket/index.handler
+    events:
+      - httpApi:
+          path: '/verify'
+          method: POST
+
+resources:
+  Resources:
+    eventDb:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: event-db
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
