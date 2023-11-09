@@ -18,7 +18,6 @@ exports.handler = async (event, context) => {
       const ticketNr = selectedEvent.tickets;
       const updatedTicketCount = selectedEvent.tickets - 1;
 
-      // Update the ticket count in the database
       const updateParams = {
         TableName: 'event-db',
         Key: {
@@ -32,25 +31,25 @@ exports.handler = async (event, context) => {
 
       await db.update(updateParams).promise();
 
-      // Create a new ticket object
       const newTicket = {
         ticketNumber: ticketNr,
         buyDate: new Date().toISOString(),
         isVerified: false,
       };
 
-      // Add the new ticket object to the event's ticketsArray
       selectedEvent.ticketsArray.push(newTicket);
 
-      // Update the event in the database to include the new ticket
       const updateEventWithTicketParams = {
         TableName: 'event-db',
         Key: {
           id: selectedEvent.id,
         },
-        UpdateExpression: 'SET ticketsArray = :newTicketsArray',
+        UpdateExpression: 'SET #ta = list_append(#ta, :newTicket)',
         ExpressionAttributeValues: {
-          ':newTicketsArray': selectedEvent.ticketsArray,
+          ':newTicket': [newTicket],
+        },
+        ExpressionAttributeNames: {
+          '#ta': 'ticketsArray',
         },
       };
       await db.update(updateEventWithTicketParams).promise();
@@ -65,7 +64,6 @@ exports.handler = async (event, context) => {
         message: 'No tickets available',
       });
     }
-    return sendResponse(200, { success: true, event: selectedEvent });
   } else {
     return sendResponse(404, { success: false, message: 'Event not found' });
   }

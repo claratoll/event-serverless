@@ -39,7 +39,7 @@ functions:
     events:
       - httpApi:
           path: '/verify'
-          method: POST
+          method: PATCH
 
 resources:
   Resources:

@@ -3,32 +3,62 @@ const AWS = require('aws-sdk');
 const db = new AWS.DynamoDB.DocumentClient();
 
 async function getTicket(ticketId) {
-  /*ticket = await db.get({
-    TableName
-    ticketId
-    något nyckel
-  })*/
+  try {
+    const response = await db
+      .get({
+        TableName: 'event-db',
+        Key: { id: ticketId },
+      })
+      .promise();
+
+    return response.Item;
+  } catch (error) {
+    console.error('Error fetching ticket:', error);
+    return null;
+  }
 }
 
-async function verify(ticketId) {
-  //updatera ticket.verify(true)
-  //kolla hur det ser ut på dog-serverless
+async function verify(ticketId, index) {
+  try {
+    await db
+      .update({
+        TableName: 'event-db',
+        Key: { id: ticketId },
+        UpdateExpression: `SET ticketsArray[${index}].isVerified = :isVerified`,
+        ExpressionAttributeValues: {
+          ':isVerified': true,
+        },
+      })
+      .promise();
+  } catch (error) {
+    console.error('Error updating ticket:', error);
+  }
 }
 
 exports.handler = async (event, context) => {
-  const { ticketId } = JSON.parse(event.body);
+  const { id, ticketNumber } = JSON.parse(event.body);
 
-  const ticket = await getTicket(ticketId);
+  const ticket = await getTicket(id);
 
-  if (!ticket) return sendResponse(error);
+  if (!ticket) {
+    return sendResponse(404, { message: 'Ticket not found' });
+  }
 
-  await verify(ticketId);
+  const matchingTicketIndex = ticket.ticketsArray.findIndex(
+    (t) => t.ticketNumber === ticketNumber
+  );
 
-  const { Items } = await db
-    .scan({
-      TableName: 'event-db',
-    })
-    .promise();
-
-  return sendResponse(200, { success: true, event: Items });
+  if (matchingTicketIndex !== -1) {
+    if (!ticket.ticketsArray[matchingTicketIndex].isVerified) {
+      await verify(ticket.id, matchingTicketIndex);
+      return sendResponse(200, { success: true, message: 'Ticket verified' });
+    } else {
+      return sendResponse(403, {
+        success: true,
+        message: 'Ticket already verified, please buy your own ticket.',
+      });
+    }
+  } else {
+    return sendResponse(403, { message: 'Invalid ticket number' });
+  }
 };
